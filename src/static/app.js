@@ -1,16 +1,49 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const activitiesList = document.getElementById("activities-list");
-  const activitySelect = document.getElementById("activity");
-  const signupForm = document.getElementById("signup-form");
-  const messageDiv = document.getElementById("message");
+// Global reference for message display
+let messageDiv;
+let activitiesList;
+let activitySelect;
+let signupForm;
 
-  // Function to fetch activities from API
+// Global unregister function accessible from onclick handlers
+async function unregisterParticipant(activityName, email) {
+  try {
+    const response = await fetch(
+      `/activities/${encodeURIComponent(activityName)}/unregister?email=${encodeURIComponent(email)}`,
+      {
+        method: "POST",
+      }
+    );
 
-async function unregisterParticipant(name) {
-  // Logic to unregister the participant from the activity
-  console.log(`Unregistered ${name}`);
-  // Optionally, you can also update the UI to reflect the change
+    const result = await response.json();
+
+    if (response.ok) {
+      messageDiv.textContent = result.message;
+      messageDiv.className = "success";
+      messageDiv.classList.remove("hidden");
+      fetchActivities();
+      
+      // Hide message after 5 seconds
+      setTimeout(() => {
+        messageDiv.classList.add("hidden");
+      }, 5000);
+    } else {
+      messageDiv.textContent = result.detail || "An error occurred";
+      messageDiv.className = "error";
+      messageDiv.classList.remove("hidden");
+    }
+  } catch (error) {
+    messageDiv.textContent = "Failed to unregister. Please try again.";
+    messageDiv.className = "error";
+    messageDiv.classList.remove("hidden");
+    console.error("Error unregistering:", error);
+  }
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  activitiesList = document.getElementById("activities-list");
+  activitySelect = document.getElementById("activity");
+  signupForm = document.getElementById("signup-form");
+  messageDiv = document.getElementById("message");
   async function fetchActivities() {
     try {
       const response = await fetch("/activities");
@@ -23,11 +56,6 @@ async function unregisterParticipant(name) {
       Object.entries(activities).forEach(([name, details]) => {
         const activityCard = document.createElement("div");
         activityCard.className = "activity-card";
-        const deleteButton = document.createElement('button');
-        deleteButton.innerHTML = '🗑️';
-        deleteButton.className = 'delete-button';
-        deleteButton.onclick = () => unregisterParticipant(name);
-        activityCard.appendChild(deleteButton);
 
         const spotsLeft = details.max_participants - details.participants.length;
 
@@ -39,18 +67,12 @@ async function unregisterParticipant(name) {
           <div class="participants">
             <h5>Participants</h5>
             <ul>
-              ${details.participants.map(participant => `<li>${participant}</li>`).join("")}
+              ${details.participants.map(participant => `<li><span>${participant}</span><button class="delete-participant-btn" onclick="unregisterParticipant('${name}', '${participant}')">Delete</button></li>`).join("")}
             </ul>
           </div>
         `;
 
         activitiesList.appendChild(activityCard);
-
-        // Add option to select dropdown
-        const option = document.createElement("option");
-        option.value = name;
-        option.textContent = name;
-        activitySelect.appendChild(option);
       });
     } catch (error) {
       activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
